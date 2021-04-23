@@ -51,14 +51,13 @@
 #    define  _DEFAULT_UMASK		0007
 #endif
 
-#define UUID_STATE			".UUID_STATE"
-#define UUID_NODEID			".UUID_NODEID"
+#define UUID_STATE			".perl-data-uuid-state"
+#define UUID_NODEID			".perl-data-uuid-nodeid"
+
 #if defined __mingw32__ || (defined _WIN32 && !defined(__cygwin__)) || defined _MSC_VER
-#define UUID_STATE_NV_STORE		_STDIR"\\"UUID_STATE
-#define UUID_NODEID_NV_STORE		_STDIR"\\"UUID_NODEID
+#define PATH_SEPARATOR "\\"
 #else
-#define UUID_STATE_NV_STORE		_STDIR"/"UUID_STATE
-#define UUID_NODEID_NV_STORE		_STDIR"/"UUID_NODEID
+#define PATH_SEPARATOR "/"
 #endif
 
 #define UUIDS_PER_TICK 1024

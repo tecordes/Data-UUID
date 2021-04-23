@@ -23,6 +23,9 @@
 
 # define PTABLE_VAL_FREE(V) ((void) (V))
 
+static char *nv_store_uuid_state;
+static char *nv_store_uuid_nodeid;
+
 # include "ptable.h"
 
 # define ptable_store(T, K, V)  ptable_store(aTHX_ (T), (K), (V))
@@ -37,6 +40,21 @@ static void inc(pTHX_ ptable_ent *ent, void *ud) {
 }
 
 #endif
+
+static char* determine_nv_path(char *filename) {
+  char *dir;
+
+  /* if HOME envvar is set, and it always should be, use HOME, otherwise fallback to /var/tmp, which has sec holes, but the only other alternative is to fatal out here */
+  if ((dir = getenv("HOME")) == 0) {
+    dir=_STDIR;
+  }
+
+  char *result = (char *)malloc(strlen(dir) + strlen(PATH_SEPARATOR) + strlen(filename) + 1);
+  strcpy(result,dir);
+  strcat(result,PATH_SEPARATOR);
+  strcat(result,filename);
+  return result;
+}
 
 static  perl_uuid_t NameSpace_DNS = { /* 6ba7b810-9dad-11d1-80b4-00c04fd430c8 */
    0x6ba7b810,
@@ -356,13 +374,13 @@ PREINIT:
    UV             one = 1;
 CODE:
    RETVAL = (uuid_context_t *)PerlMemShared_malloc(sizeof(uuid_context_t));
-   if ((fd = fopen(UUID_STATE_NV_STORE, "rb"))) {
+   if ((fd = fopen(nv_store_uuid_state, "rb"))) {
       fread(&(RETVAL->state), sizeof(uuid_state_t), 1, fd);
       fclose(fd);
       get_current_time(&timestamp);
       RETVAL->next_save = timestamp;
    }
-   if ((fd = fopen(UUID_NODEID_NV_STORE, "rb"))) {
+   if ((fd = fopen(nv_store_uuid_nodeid, "rb"))) {
       pid_t *hate = (pid_t *) &(RETVAL->nodeid); 
       fread(&(RETVAL->nodeid), sizeof(uuid_node_t), 1, fd );
       fclose(fd);
@@ -373,7 +391,7 @@ CODE:
       seed[0] |= 0x80;
       memcpy(&(RETVAL->nodeid), seed, sizeof(uuid_node_t));
       mask = umask(_DEFAULT_UMASK);
-      if ((fd = fopen(UUID_NODEID_NV_STORE, "wb"))) {
+      if ((fd = fopen(nv_store_uuid_nodeid, "wb"))) {
          fwrite(&(RETVAL->nodeid), sizeof(uuid_node_t), 1, fd);
          fclose(fd);
       };
@@ -417,7 +435,7 @@ PPCODE:
    self->state.cs   = clockseq;
    if (timestamp > self->next_save ) {
       mask = umask(_DEFAULT_UMASK);
-      if((fd = fopen(UUID_STATE_NV_STORE, "wb"))) {
+      if((fd = fopen(nv_store_uuid_state, "wb"))) {
 	 LOCK(fd);
          fwrite(&(self->state), sizeof(uuid_state_t), 1, fd);
 	 UNLOCK(fd);
@@ -586,7 +604,7 @@ CODE:
    if (count == 0) {
 #endif
       mask = umask(_DEFAULT_UMASK);
-      if ((fd = fopen(UUID_STATE_NV_STORE, "wb"))) {
+      if ((fd = fopen(nv_store_uuid_state, "wb"))) {
          LOCK(fd);
          fwrite(&(self->state), sizeof(uuid_state_t), 1, fd);
          UNLOCK(fd);
@@ -610,4 +628,7 @@ BOOT:
   newCONSTSUB(stash, "NameSpace_URL", newSVpv((char *)&NameSpace_URL, len));
   newCONSTSUB(stash, "NameSpace_OID", newSVpv((char *)&NameSpace_OID, len));
   newCONSTSUB(stash, "NameSpace_X500", newSVpv((char *)&NameSpace_X500, len));
+
+  nv_store_uuid_state = determine_nv_path(UUID_STATE);
+  nv_store_uuid_nodeid = determine_nv_path(UUID_NODEID);
 }
